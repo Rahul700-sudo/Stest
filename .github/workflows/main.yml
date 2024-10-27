@@ -1,0 +1,42 @@
+name: Auto Restart Codespace
+
+on:
+  schedule:
+    - cron: '* * * * *'
+  workflow_dispatch:
+
+jobs:
+  restart_codespace:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get install -y gh jq
+
+      - name: Authenticate GitHub CLI with Personal Access Token
+        env:
+          GITHUB_TOKEN: ''  # Override GITHUB_TOKEN to clear it
+        run: |
+          echo "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" | gh auth login --with-token
+
+      - name: Check Codespace Status
+        run: |
+          CODESPACE_NAME="wretched-cape-g47qqv7965r9fvw9v.github.dev"
+
+          while true; do
+            STATUS=$(gh codespace list --json name,state | jq -r --arg name "$CODESPACE_NAME" '.[] | select(.name == $name) | .state')
+
+            echo "Codespace status: $STATUS"
+
+            if [ "$STATUS" == "Shutdown" ]; then
+              echo "Codespace is offline. Starting it..."
+              gh codespace ssh -c $CODESPACE_NAME
+              break  # Exit the loop after attempting to start the Codespace
+            else
+              echo "Codespace is alive."
+            fi
+            
+            sleep 1
+          done
